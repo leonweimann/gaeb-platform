@@ -1,0 +1,8 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.analysis.extraPaths": ["services/api/src", "packages/gaebio/src"],
+  "python.analysis.indexing": true,
+  "python.analysis.autoImportCompletions": true,
+  "editor.formatOnSave": true,
+  "files.insertFinalNewline": true
+}
