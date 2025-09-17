@@ -1,6 +1,6 @@
-default: start
+default: api
 
-start:
+api:
     uv run --package api uvicorn --reload --app-dir services/api/src api.app:app
 
 sync uv:
