@@ -8,3 +8,11 @@ dependencies = []
 
 [tool.uv.workspace]
 members = ["packages/*", "services/*"]
+
+[tool.uv.sources]
+gaebio = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
