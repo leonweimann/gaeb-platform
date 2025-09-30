@@ -1,11 +1,11 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Dict, Iterable, List, Optional, Literal, Tuple
-from decimal import Decimal, ROUND_HALF_UP
-from datetime import datetime, timezone
-from uuid import UUID, uuid4
 
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from decimal import ROUND_HALF_UP, Decimal
+from enum import Enum
+from typing import Dict, Iterable, List, Literal, Optional, Tuple
+from uuid import UUID, uuid4
 
 Phase = Literal["X83", "X84"]
 CENT = Decimal("0.01")
