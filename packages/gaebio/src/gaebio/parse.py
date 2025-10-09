@@ -166,8 +166,8 @@ class GaebAdapter:
             qty = _to_decimal(row.get("Qty")) or Decimal("0")
             qu_raw = _clean_text(row.get("QU")) or "C62"  # 'Unit'
 
-            unit_price = None  # To be implemented later
-            vat_rate = None  # To be implemented later
+            unit_price = None  # TODO: To be implemented later
+            vat_rate = None  # TODO: To be implemented later
 
             parent = ensure_title(gewerk, unter)
             lv.add_position(
