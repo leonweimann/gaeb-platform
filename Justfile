@@ -22,10 +22,6 @@ gaebio-test:
 	PYTHONPATH=packages/gaebio/src \
 	uv run python packages/gaebio/src/gaebio/try_parsing.py packages/gaebio/tests/data/sample.X83
 
-# ----- DB connect -----
-db-connect:
-	psql "postgresql://neondb_owner:npg_tMUI4YA0GFOa@ep-lingering-thunder-a9zfoyxc-pooler.gwc.azure.neon.tech/neondb?sslmode=require&channel_binding=require"
-
 # ----- DB init (nur Tabellen anlegen) -----
 db-init:
 	uv run python -m gaebdb.main
