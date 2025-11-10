@@ -155,7 +155,12 @@ def insert_lv(conn, lv):
         cur.execute(DDL)
         cur.execute(
             "INSERT INTO lv (id, phase, project, meta) VALUES (%s, %s, %s, %s)",
-            (lv_id, str(phase), project, json.dumps(meta) if meta is not None else None),
+            (
+                lv_id,
+                str(phase),
+                project,
+                json.dumps(meta) if meta is not None else None,
+            ),
         )
 
         root = _find_root(lv)
@@ -213,7 +218,9 @@ def insert_lv(conn, lv):
 # ───────────── Preise aus X84 auf vorhandene Positionen mappen ─────────────
 
 
-def _collect_prices_from_lv(lv, update_key: str = "oz_path") -> list[tuple[str, Optional[Decimal], Optional[Decimal]]]:
+def _collect_prices_from_lv(
+    lv, update_key: str = "oz_path"
+) -> list[tuple[str, Optional[Decimal], Optional[Decimal]]]:
     """
     Liefert Liste (key, unit_price, total_net) aus einem Preis-LV (z.B. X84).
     key = oz_path-String oder oz.
@@ -302,11 +309,20 @@ def apply_prices_from_lv(conn, price_lv, update_key: str = "oz_path"):
 def main():
     ap = argparse.ArgumentParser(description="GAEB-DB Tools (Neon/Postgres).")
     ap.add_argument("--gaeb", help="Pfad zu .X83/.X84 (LV importieren).")
-    ap.add_argument("--phase", default="X83", help="Phase-Label beim Import (nur mit --gaeb).")
-    ap.add_argument("--project", default=None, help="Projektname (nur mit --gaeb).")
-    ap.add_argument("--apply-prices-from", dest="apply_prices_from", help="Pfad zu .X84 (Preise in DB übertragen).")
     ap.add_argument(
-        "--update-key", choices=["oz_path", "oz"], default="oz_path", help="Matching-Schlüssel für Preis-Update."
+        "--phase", default="X83", help="Phase-Label beim Import (nur mit --gaeb)."
+    )
+    ap.add_argument("--project", default=None, help="Projektname (nur mit --gaeb).")
+    ap.add_argument(
+        "--apply-prices-from",
+        dest="apply_prices_from",
+        help="Pfad zu .X84 (Preise in DB übertragen).",
+    )
+    ap.add_argument(
+        "--update-key",
+        choices=["oz_path", "oz"],
+        default="oz_path",
+        help="Matching-Schlüssel für Preis-Update.",
     )
     args = ap.parse_args()
 
