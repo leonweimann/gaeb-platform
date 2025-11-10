@@ -23,7 +23,10 @@ try:
 
         def _parse_item_safe(self, item_soup, level):
             if hasattr(self, "oz") and isinstance(self.oz, list):
-                self.oz = [o if isinstance(o, str) else (str(o) if o is not None else "") for o in self.oz]
+                self.oz = [
+                    o if isinstance(o, str) else (str(o) if o is not None else "")
+                    for o in self.oz
+                ]
             return _original_parse_item(self, item_soup, level)
 
         XmlGaebParser._parse_item = _parse_item_safe
@@ -52,7 +55,9 @@ def _clean_text(s: object | None) -> str:
     return " ".join(text.split())
 
 
-def _detect_gaeb_meta_from_file(path: Union[str, Path]) -> tuple[dict[str, str], str]: ...
+def _detect_gaeb_meta_from_file(
+    path: Union[str, Path],
+) -> tuple[dict[str, str], str]: ...
 
 
 @dataclass(slots=True)
@@ -84,7 +89,18 @@ class GaebAdapter:
     Adapter to convert from gaeb_parser's data structures to gaebio's data structures.
     """
 
-    REQUIRED_COLUMNS = ["Projekt", "OZ", "Gewerk", "Untergewerk", "Kurztext", "Qty", "QU", "TLK", "Langtext", "Info"]
+    REQUIRED_COLUMNS = [
+        "Projekt",
+        "OZ",
+        "Gewerk",
+        "Untergewerk",
+        "Kurztext",
+        "Qty",
+        "QU",
+        "TLK",
+        "Langtext",
+        "Info",
+    ]
 
     def __init__(self, source: Union[str, Path, bytes]):
         if XmlGaebParser is None:
@@ -125,7 +141,9 @@ class GaebAdapter:
         lv = LV(phase=phase, meta={"source": str(self._file_path)})
 
         # Name root, if possible
-        project_name = _clean_text(self._project_name) or _clean_text(self._first_or_blank(df, "Projekt"))
+        project_name = _clean_text(self._project_name) or _clean_text(
+            self._first_or_blank(df, "Projekt")
+        )
         if project_name:
             lv.project = project_name
             lv.root.name = project_name
@@ -189,7 +207,9 @@ class GaebAdapter:
             raise RuntimeError("gaeb_parser.XmlGaebParser does not support get_df()")
         df = self._parser.get_df()
         if not isinstance(df, pd.DataFrame):
-            raise RuntimeError("gaeb_parser.XmlGaebParser.get_df() did not return a pandas.DataFrame")
+            raise RuntimeError(
+                "gaeb_parser.XmlGaebParser.get_df() did not return a pandas.DataFrame"
+            )
 
         # Add missing columns with empty values
         for column in self.REQUIRED_COLUMNS:
@@ -237,6 +257,8 @@ def parse_x84(source: Union[str, Path, bytes]) -> LV:
     return __parse_with_adapter(source=source, phase="X84")
 
 
-def __parse_with_adapter(source: Union[str, Path, bytes], phase: Literal["X83", "X84"]) -> LV:
+def __parse_with_adapter(
+    source: Union[str, Path, bytes], phase: Literal["X83", "X84"]
+) -> LV:
     with GaebAdapter(source) as adapter:
         return adapter.parse(phase=phase)
