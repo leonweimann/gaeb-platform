@@ -6,9 +6,9 @@ readme = "README.md"
 authors = [{ name = "Leon Weimann", email = "nachhilfe@leonweimann.de" }]
 requires-python = ">=3.13"
 dependencies = [
-    "gaebio",
-    "psycopg>=3.2.10",
+    "psycopg[binary]>=3.2.10",
     "python-dotenv>=1.1.1",
+    "sqlalchemy[asyncio]>=2.0.44",
 ]
 
 [project.scripts]
@@ -17,6 +17,3 @@ gaebdb = "gaebdb:main"
 [build-system]
 requires = ["uv_build>=0.8.21,<0.9.0"]
 build-backend = "uv_build"
-
-[tool.uv.sources]
-gaebio = { workspace = true }
