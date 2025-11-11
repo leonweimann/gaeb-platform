@@ -22,3 +22,7 @@ gaebio-test:
 	PYTHONPATH=packages/gaebio/src \
 	uv run python packages/gaebio/src/gaebio/try_parsing.py packages/gaebio/tests/data/sample.X83
 	uv run python packages/gaebio/src/gaebio/try_parsing.py packages/gaebio/tests/data/sample.X84 X84
+
+gaebdb-setup:
+	PYTHONPATH=packages/gaebdb/src \
+	uv run python packages/gaebdb/src/gaebdb/scripts/setup_db.py

@@ -26,5 +26,4 @@ __all__ = [
     "get_engine",
     "get_sessionmaker",
     "session_scope",
-    # Models
 ]
