@@ -1,12 +1,11 @@
 import asyncio
 
-from gaebdb import get_sessionmaker
+from gaebdb import session_scope
 from sqlalchemy import text
 
 
 async def main():
-    Session = get_sessionmaker()  # uses automatically GAEBDB_TARGET=development
-    async with Session() as session:
+    async with session_scope() as session:
         result = await session.execute(text("SELECT current_database(), current_user"))
         db, user = result.one()
         print("✅ Connection successful:")
