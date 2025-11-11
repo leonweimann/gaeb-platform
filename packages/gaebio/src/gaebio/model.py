@@ -73,13 +73,16 @@ def parse_oz(oz: Optional[str]) -> Tuple[int, ...]:
 @dataclass(slots=True)
 class Position:
     id: UUID = field(default_factory=uuid4)
+    gaeb_id: Optional[str] = None
     oz: str = ""
     oz_path: Tuple[int, ...] = ()
     short_text: str = ""
     long_text: Optional[str] = None
     unit: Unit = Unit.C62
+    unit_raw: Optional[str] = None
     quantity: Decimal = Decimal("0")
     unit_price_net: Optional[Decimal] = None
+    total_price_net_explicit: Optional[Decimal] = None
     vat_rate: Decimal = Decimal("0.19")
 
     def __post_init__(self):
@@ -88,6 +91,8 @@ class Position:
 
     @property
     def total_price_net(self) -> Optional[Decimal]:
+        if self.total_price_net_explicit is not None:
+            return money(self.total_price_net_explicit)
         if self.unit_price_net is None:
             return None
         return money(self.unit_price_net * self.quantity)
@@ -186,17 +191,24 @@ class LV:
         unit_price_net: Optional[Decimal] = None,
         vat_rate: Optional[Decimal] = None,
         long_text: Optional[str] = None,
+        gaeb_id: Optional[str] = None,
+        total_price_net: Optional[Decimal] = None,
     ) -> Position:
         """Adds a new position to the given parent title and returns it."""
-        unit = unit_raw if isinstance(unit_raw, Unit) else normalize_unit(unit_raw)
+        unit_enum = unit_raw if isinstance(unit_raw, Unit) else normalize_unit(unit_raw)
         pos = Position(
+            gaeb_id=gaeb_id,
             oz=oz,
             oz_path=parse_oz(oz),
             short_text=short_text,
             long_text=long_text,
-            unit=unit,
+            unit=unit_enum,
+            unit_raw=(
+                str(unit_raw) if not isinstance(unit_raw, Unit) else unit_enum.value
+            ),
             quantity=quantity,
             unit_price_net=unit_price_net,
+            total_price_net_explicit=total_price_net,
             vat_rate=vat_rate if vat_rate is not None else self.default_vat_rate,
         )
         parent.positions.append(pos)

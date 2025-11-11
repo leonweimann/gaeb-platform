@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import re
 import tempfile
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -140,6 +142,11 @@ class GaebAdapter:
         df = self._load_df()
         lv = LV(phase=phase, meta={"source": str(self._file_path)})
 
+        price_by_id: dict[str, tuple[Optional[Decimal], Optional[Decimal]]] = {}
+        price_by_oz: dict[str, tuple[Optional[Decimal], Optional[Decimal]]] = {}
+        if phase == "X84":
+            price_by_id, price_by_oz = self._build_price_index_x84()
+
         # Name root, if possible
         project_name = _clean_text(self._project_name) or _clean_text(
             self._first_or_blank(df, "Projekt")
@@ -175,8 +182,12 @@ class GaebAdapter:
             return t2
 
         # Rows -> Positions
+        # Rows -> Positions
         for _, row in df.iterrows():
             oz = _clean_text(row.get("OZ"))
+            if not oz:
+                continue
+
             gewerk = _clean_text(row.get("Gewerk"))
             unter = _clean_text(row.get("Untergewerk"))
             short = _clean_text(row.get("Kurztext"))
@@ -184,8 +195,46 @@ class GaebAdapter:
             qty = _to_decimal(row.get("Qty")) or Decimal("0")
             qu_raw = _clean_text(row.get("QU")) or "C62"  # 'Unit'
 
-            unit_price = None  # TODO: To be implemented later
+            raw_gaeb_id = (
+                row.get("ID")
+                or row.get("GAEB_ID")
+                or row.get("ItemID")
+                or row.get("ItemId")
+            )
+            gaeb_id = _clean_text(raw_gaeb_id) or None
+
+            # Primärer Schlüssel für OZ-basierte Zuordnung:
+            # erst RNoPart/RNo aus df, sonst OZ
+            oz_key_raw = row.get("RNoPart") or row.get("RNo") or row.get("OZ") or ""
+            oz_key = _clean_text(oz_key_raw)
+
             vat_rate = None  # TODO: To be implemented later
+            unit_price = None
+            total_price = None
+
+            if phase == "X84":
+                # 1. Versuch: Über GAEB-ID
+                if gaeb_id and gaeb_id in price_by_id:
+                    unit_price, total_price = price_by_id[gaeb_id]
+
+                # 2. Versuch: Direkter Treffer über oz_key (RNoPart/RNo/OZ)
+                if unit_price is None and total_price is None and oz_key:
+                    if oz_key in price_by_oz:
+                        unit_price, total_price = price_by_oz[oz_key]
+                    else:
+                        # 3. Heuristik: OZ im Format xx.xx.0001 -> letzten Block verwenden
+                        # Beispiel: "01.01.0001" -> "0001"
+                        parts = oz_key.split(".")
+                        if len(parts) > 1:
+                            last = parts[-1]
+                            # Normalisieren wie im Index (RNoPart in Beispiel ist 4-stellig)
+                            last_padded = last.zfill(4)
+
+                            if last_padded in price_by_oz:
+                                unit_price, total_price = price_by_oz[last_padded]
+                            elif last in price_by_oz:
+                                # Falls der Index ungepaddet ist
+                                unit_price, total_price = price_by_oz[last]
 
             parent = ensure_title(gewerk, unter)
             lv.add_position(
@@ -197,6 +246,8 @@ class GaebAdapter:
                 unit_raw=qu_raw,
                 unit_price_net=unit_price,
                 vat_rate=vat_rate,
+                gaeb_id=gaeb_id,
+                total_price_net=total_price,
             )
 
         lv.sort_by_oz()
@@ -211,14 +262,83 @@ class GaebAdapter:
                 "gaeb_parser.XmlGaebParser.get_df() did not return a pandas.DataFrame"
             )
 
-        # Add missing columns with empty values
+        # Pflichtspalten sicherstellen
         for column in self.REQUIRED_COLUMNS:
             if column not in df.columns:
                 df[column] = ""
 
-        # Keep only required columns and fill NaN with empty strings
-        df = df[self.REQUIRED_COLUMNS].fillna("")
+        # Wichtig: keine anderen Spalten verlieren (ID etc. bleiben erhalten)
+        df = df.fillna("")
         return df
+
+    def _build_price_index_x84(
+        self,
+    ) -> tuple[
+        dict[str, tuple[Optional[Decimal], Optional[Decimal]]],
+        dict[str, tuple[Optional[Decimal], Optional[Decimal]]],
+    ]:
+        """
+        Liest für eine X84-/DA84-Datei die Preise direkt aus dem XML.
+
+        Rückgabe:
+          - price_by_id:  Item-ID -> (unit_price, total_price)
+          - price_by_oz:  OZ/RNoPart -> (unit_price, total_price)
+
+        Wir nutzen ID, wenn möglich, sonst OZ als Fallback.
+        """
+        tree = ET.parse(self._file_path)
+        root = tree.getroot()
+
+        # Namespace erkennen, falls vorhanden
+        m = re.match(r"\{(.+)\}", root.tag)
+        ns = {"g": m.group(1)} if m else {}
+
+        def findall(path: str):
+            if ns:
+                return root.findall(path, ns)
+            return root.findall(path.replace("g:", ""))
+
+        def find(child, name: str):
+            if ns:
+                el = child.find(f"g:{name}", ns)
+                if el is not None:
+                    return el
+            return child.find(name)
+
+        price_by_id: dict[str, tuple[Optional[Decimal], Optional[Decimal]]] = {}
+        price_by_oz: dict[str, tuple[Optional[Decimal], Optional[Decimal]]] = {}
+
+        for item in findall(".//g:Item"):
+            up_el = find(item, "UP")
+            it_el = find(item, "IT")
+            qty_el = find(item, "Qty")
+
+            if up_el is None and it_el is None:
+                continue
+
+            up = _to_decimal(up_el.text) if up_el is not None else None
+            total = _to_decimal(it_el.text) if it_el is not None else None
+            qty = _to_decimal(qty_el.text) if qty_el is not None else None
+
+            # Ableiten, wenn nur eins vorhanden
+            if up is None and total is not None and qty not in (None, Decimal("0")):
+                up = total / qty
+            if total is None and up is not None and qty not in (None, Decimal("0")):
+                total = up * qty
+
+            if up is None and total is None:
+                continue
+
+            item_id = item.attrib.get("ID")
+            # je nach Datei kann das RNo, RNoPart oder OZ sein
+            oz_key = item.attrib.get("RNoPart") or item.attrib.get("RNo")
+
+            if item_id:
+                price_by_id[item_id] = (up, total)
+            if oz_key and oz_key not in price_by_oz:
+                price_by_oz[oz_key] = (up, total)
+
+        return price_by_id, price_by_oz
 
     @staticmethod
     def _first_or_blank(df: pd.DataFrame, column: str) -> str:

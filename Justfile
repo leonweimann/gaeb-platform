@@ -21,19 +21,4 @@ sync-uv:
 gaebio-test:
 	PYTHONPATH=packages/gaebio/src \
 	uv run python packages/gaebio/src/gaebio/try_parsing.py packages/gaebio/tests/data/sample.X83
-
-# ----- DB init (nur Tabellen anlegen) -----
-db-init:
-	uv run python -m gaebdb.main
-
-# ----- DB save (X83/X84 importieren; Args werden durchgereicht) -----
-# Beispiel:
-#   just db-save --gaeb packages/gaebio/tests/data/sample.X83 --phase X83 --project "Demo"
-db-save *ARGS:
-	uv run python -m gaebdb.main {{ARGS}}
-
-# ----- Preise aus X84 anwenden -----
-# Beispiel:
-#   just db-price --apply-prices-from packages/gaebio/tests/data/sample.X84 --update-key oz_path
-db-price *ARGS:
-	uv run python -m gaebdb.main {{ARGS}}
+	uv run python packages/gaebio/src/gaebio/try_parsing.py packages/gaebio/tests/data/sample.X84 X84
