@@ -4,11 +4,7 @@ version = "0.1.0"
 description = "Workspace for GAEB platform (libs + services)"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = [
-    "beautifulsoup4>=4.14.2",
-    "gaebio",
-    "lxml>=6.0.1",
-]
+dependencies = ["beautifulsoup4>=4.14.2", "gaebio", "lxml>=6.0.1"]
 
 [tool.uv.workspace]
 members = ["packages/*", "services/*"]
