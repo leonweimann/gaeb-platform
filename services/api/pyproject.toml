@@ -8,8 +8,14 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.116.1",
     "gaebio",
+    "passlib[bcrypt]>=1.7.4",
+    "argon2-cffi>=21.3.0",
+    "python-jose[cryptography]>=3.5.0",
     "python-multipart>=0.0.20",
     "uvicorn>=0.35.0",
+    "sqlalchemy>=2.0.44",
+    "databases[sqlite]>=0.9.0",
+    "alembic>=1.17.1",
 ]
 
 [build-system]
