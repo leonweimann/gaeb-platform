@@ -26,3 +26,6 @@ gaebio-test:
 gaebdb-setup:
 	PYTHONPATH=packages/gaebdb/src \
 	uv run python packages/gaebdb/src/gaebdb/scripts/setup_db.py
+
+client:
+	uv run --package upload-client python services/upload-client/src/upload_client/main.py

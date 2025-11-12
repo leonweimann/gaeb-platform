@@ -1,2 +1,1 @@
-def main() -> None:
-    print("Hello from upload-client!")
+from .main import main  # noqa: F401

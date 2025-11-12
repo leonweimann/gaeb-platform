@@ -1041,12 +1041,14 @@ source = { editable = "services/upload-client" }
 dependencies = [
     { name = "gaebdb" },
     { name = "gaebio" },
+    { name = "numpy" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "gaebdb", editable = "packages/gaebdb" },
     { name = "gaebio", editable = "packages/gaebio" },
+    { name = "numpy", specifier = ">=2.3.3" },
 ]
 
 [[package]]
