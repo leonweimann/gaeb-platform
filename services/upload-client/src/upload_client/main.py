@@ -18,12 +18,20 @@ from gaebdb import session_scope
 from gaebdb.models.imports import LV as DbLV
 from gaebdb.models.imports import Position as DbPosition
 from gaebdb.models.imports import Title as DbTitle
-from gaebio.parse import parse_x83  # X84-Merging machen wir später sauber
+from gaebio.parse import parse_x83, parse_x84
+
+
+def get_node_key(node: object) -> int:
+    """Stabiler Key für Title-Nodes basierend auf Objekt-Identität."""
+    return id(node)
+
 
 # ---------- Import-Logik (Mapping gaebio -> gaebdb) ----------
 
 
-async def store_parsed_lv(parsed_lv, external_ref: str | None = None) -> DbLV:
+async def store_parsed_lv(
+    parsed_lv, external_ref: str | None = None, price_index: dict | None = None
+) -> DbLV:
     async with session_scope() as session:
         # Projektname / Meta
         project_name = getattr(parsed_lv, "project", None) or getattr(
@@ -131,16 +139,31 @@ async def store_parsed_lv(parsed_lv, external_ref: str | None = None) -> DbLV:
 
         for p in positions:
             parent = getattr(p, "parent", None)
+            db_title = None
 
             if parent is not None:
-                db_title = title_map.get(id(parent))
-            else:
-                db_title = None
+                parent_key = get_node_key(parent)
+                if parent_key:
+                    db_title = title_map.get(parent_key)
 
             if db_title is None:
                 db_title = default_unter
 
             unit = getattr(p, "unit_raw", None) or getattr(p, "unit", None) or "C62"
+
+            key = (
+                getattr(p, "gaeb_id", None) or str(getattr(p, "oz", "")).strip() or None
+            )
+
+            # Sicherstellen, dass wir immer ein Dict haben
+            price_data: dict = {}
+            if price_index is not None and key is not None:
+                # .get(...) kann None liefern → mit "or {}" absichern
+                price_data = price_index.get(key) or {}
+
+            def pick(field: str, fallback):
+                value = price_data.get(field)
+                return value if value is not None else fallback
 
             db_pos = DbPosition(
                 lv_id=db_lv.id,
@@ -152,9 +175,13 @@ async def store_parsed_lv(parsed_lv, external_ref: str | None = None) -> DbLV:
                 info=getattr(p, "info", None),
                 quantity=getattr(p, "quantity", 0),
                 unit=unit,
-                unit_price_net=getattr(p, "unit_price_net", None),
-                total_price_net=getattr(p, "total_price_net", None),
-                vat_rate=getattr(p, "vat_rate", None),
+                unit_price_net=pick(
+                    "unit_price_net", getattr(p, "unit_price_net", None)
+                ),
+                total_price_net=pick(
+                    "total_price_net", getattr(p, "total_price_net", None)
+                ),
+                vat_rate=pick("vat_rate", getattr(p, "vat_rate", None)),
                 gewerk_name=db_title.gewerk_name,
                 untergewerk_name=db_title.untergewerk_name,
             )
@@ -163,12 +190,57 @@ async def store_parsed_lv(parsed_lv, external_ref: str | None = None) -> DbLV:
         return db_lv
 
 
-async def import_gaeb(x83_path: str, x84_path: str | None, external_ref: str | None):
-    # Aktuell: nur X83 importieren.
-    # Die X84 wird später in gaebio/gaebdb sauber in dasselbe LV gemerged.
-    parsed = parse_x83(x83_path)
+def build_price_index(parsed_lv) -> dict[str, dict]:
+    """
+    Baut ein Mapping aus GAEB-Positionen (X84) auf Preisinfos.
+    Key: gaeb_id oder oz (String)
+    Value: Dict mit unit_price_net / total_price_net / vat_rate
+    """
+    root = parsed_lv.root
+    positions = getattr(parsed_lv, "positions", None)
+    if positions is None:
+        positions = []
+        stack = [root]
+        while stack:
+            t = stack.pop()
+            positions.extend(getattr(t, "positions", []))
+            stack.extend(getattr(t, "children", []))
 
-    db_lv = await store_parsed_lv(parsed, external_ref=external_ref)
+    index: dict[str, dict] = {}
+    for p in positions:
+        key = getattr(p, "gaeb_id", None) or str(getattr(p, "oz", "")).strip()
+        if not key:
+            continue
+
+        unit_price = getattr(p, "unit_price_net", None) or getattr(
+            p, "unit_price", None
+        )
+        total_price = getattr(p, "total_price_net", None) or getattr(p, "amount", None)
+        vat = getattr(p, "vat_rate", None)
+
+        if unit_price is None and total_price is None and vat is None:
+            continue
+
+        index[key] = {
+            "unit_price_net": unit_price,
+            "total_price_net": total_price,
+            "vat_rate": vat,
+        }
+
+    return index
+
+
+async def import_gaeb(x83_path: str, x84_path: str | None, external_ref: str | None):
+    parsed_x83 = parse_x83(x83_path)
+
+    price_index = None
+    if x84_path:
+        parsed_x84 = parse_x84(x84_path)
+        price_index = build_price_index(parsed_x84)
+
+    db_lv = await store_parsed_lv(
+        parsed_x83, external_ref=external_ref, price_index=price_index
+    )
     return db_lv.id
 
 
