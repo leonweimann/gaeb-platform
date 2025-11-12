@@ -28,4 +28,6 @@ gaebdb-setup:
 	uv run python packages/gaebdb/src/gaebdb/scripts/setup_db.py
 
 client:
+	rm -rf .venv
+	uv sync --all-packages
 	uv run --package upload-client python services/upload-client/src/upload_client/main.py
